@@ -4,7 +4,7 @@ This repository contains the E-Commerce microservices using 2 Phase-Commit patte
 ## How to run the application using Docker
 
 1. Run `mvn clean install` to build the applications and create the docker image locally.
-2. Run `docker-compose --profiles services up` to start the applications.
+2. Run `docker-compose --profile services up` to start the applications.
 
 ## How to run the application without Docker
 
