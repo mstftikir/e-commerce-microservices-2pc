@@ -52,10 +52,10 @@ public class DataLoader implements CommandLineRunner {
             userAddress1.setUpdateDate(LocalDateTime.now());
 
             User user2 = new User();
-            user2.setId(67890L);
+            user2.setId(99999L);
             user2.setName("Tarkan");
             user2.setSurname("Tevetoglu");
-            user2.setEmailAddress("daft.punk@email.com");
+            user2.setEmailAddress("tarkan.tevetoglu@email.com");
             user2.setUserAddresses(List.of(userAddress1));
             user2.setInsertDate(LocalDateTime.now());
             user2.setUpdateDate(LocalDateTime.now());
