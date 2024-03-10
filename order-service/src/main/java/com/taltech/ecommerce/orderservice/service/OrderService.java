@@ -8,7 +8,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.taltech.ecommerce.orderservice.dto.inventory.InventoryDto;
@@ -30,14 +29,18 @@ import reactor.core.publisher.Mono;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 @Slf4j
 public class OrderService {
 
     private static final String PREPARE = "prepare";
     private static final String COMMIT = "commit";
     private static final String ROLLBACK = "rollback";
+    private static final String UPDATE_INVENTORY = "updateInventory";
+    private static final String DELETE_CHART = "deleteChart";
+    private static final String SAVE_PAYMENT = "savePayment";
+
     private static final String SERVICES_FAILED_MESSAGE = "{} - {} failed with message: {}";
+    private static final String EXCEPTION_MESSAGE = "%s - %s failed with message";
     private static final String STARTING_ROLLBACK_MESSAGE = "Starting rollback for {}";
 
     private final OrderRepository repository;
@@ -64,36 +67,79 @@ public class OrderService {
         order.setOrderEvent(orderEvent);
 
         addDates(order);
-        repository.save(order);
+        repository.saveAndFlush(order);
 
-        //Prepare phase
-        updateInventory(PREPARE, order);
-        deleteChart(PREPARE, order);
-        savePayment(PREPARE, order);
+        preparePhase(order, orderEvent);
 
-        ///Commit Phase
+        PaymentDto commitPayment = commitPhase(order, orderEvent);
 
+        order.setTotalPrice(commitPayment.getTotalPrice());
+        orderEvent.setInventoryStatus(EventStatus.SUCCESSFUL);
+        orderEvent.setChartStatus(EventStatus.SUCCESSFUL);
+        orderEvent.setPaymentStatus(EventStatus.SUCCESSFUL);
+        order.setUpdateDate(LocalDateTime.now());
+
+        return repository.saveAndFlush(order);
+    }
+
+    private void preparePhase(Order order, OrderEvent orderEvent) {
+        try {
+            updateInventory(PREPARE, order);
+        }
+        catch (Exception exception) {
+            log.error(SERVICES_FAILED_MESSAGE, PREPARE, UPDATE_INVENTORY, exception.getMessage());
+            orderEvent.setInventoryStatus(EventStatus.FAILED);
+            order.setUpdateDate(LocalDateTime.now());
+            repository.saveAndFlush(order);
+            throw new OrderNotPlacedException(String.format(EXCEPTION_MESSAGE, PREPARE, UPDATE_INVENTORY));
+        }
+
+        try {
+            deleteChart(PREPARE, order);
+        }
+        catch (Exception exception) {
+            log.error(SERVICES_FAILED_MESSAGE, PREPARE, DELETE_CHART, exception.getMessage());
+            orderEvent.setChartStatus(EventStatus.FAILED);
+            order.setUpdateDate(LocalDateTime.now());
+            repository.saveAndFlush(order);
+            throw new OrderNotPlacedException(String.format(EXCEPTION_MESSAGE, PREPARE, DELETE_CHART));
+        }
+
+        try {
+            savePayment(PREPARE, order);
+        }
+        catch (Exception exception) {
+            log.error(SERVICES_FAILED_MESSAGE, PREPARE, SAVE_PAYMENT, exception.getMessage());
+            orderEvent.setPaymentStatus(EventStatus.FAILED);
+            order.setUpdateDate(LocalDateTime.now());
+            repository.saveAndFlush(order);
+            throw new OrderNotPlacedException(String.format(EXCEPTION_MESSAGE, PREPARE, SAVE_PAYMENT));
+        }
+    }
+
+    private PaymentDto commitPhase(Order order, OrderEvent orderEvent) {
         try {
             updateInventory(COMMIT, order);
         }
         catch (Exception exception) {
-            log.error(SERVICES_FAILED_MESSAGE, COMMIT, "updateInventory", exception.getMessage());
+            log.error(SERVICES_FAILED_MESSAGE, COMMIT, UPDATE_INVENTORY, exception.getMessage());
             orderEvent.setInventoryStatus(EventStatus.FAILED);
-            repository.save(order);
-            throw new OrderNotPlacedException("updateInventory has been failed");
+            order.setUpdateDate(LocalDateTime.now());
+            repository.saveAndFlush(order);
+            throw new OrderNotPlacedException(String.format(EXCEPTION_MESSAGE, COMMIT, UPDATE_INVENTORY));
         }
-
 
         try {
             deleteChart(COMMIT, order);
         }
         catch (Exception exception) {
-            log.error(SERVICES_FAILED_MESSAGE, COMMIT, "deleteChart", exception.getMessage());
-            log.error(STARTING_ROLLBACK_MESSAGE, "updateInventory");
+            log.error(SERVICES_FAILED_MESSAGE, COMMIT, DELETE_CHART, exception.getMessage());
+            log.error(STARTING_ROLLBACK_MESSAGE, UPDATE_INVENTORY);
             updateInventory(ROLLBACK, order);
             orderEvent.setInventoryStatus(EventStatus.ROLLBACK);
             orderEvent.setChartStatus(EventStatus.FAILED);
-            repository.save(order);
+            order.setUpdateDate(LocalDateTime.now());
+            repository.saveAndFlush(order);
             throw new OrderNotPlacedException("deleteChart has been failed, updateInventory has been rollbacked");
         }
 
@@ -102,7 +148,7 @@ public class OrderService {
             commitPayment = savePayment(COMMIT, order);
         }
         catch (Exception exception) {
-            log.error(SERVICES_FAILED_MESSAGE, COMMIT, "commitPayment", exception.getMessage());
+            log.error(SERVICES_FAILED_MESSAGE, COMMIT, SAVE_PAYMENT, exception.getMessage());
             log.error(STARTING_ROLLBACK_MESSAGE, "deleteChart and updateInventory");
             deleteChart(ROLLBACK, order);
             updateInventory(ROLLBACK, order);
@@ -110,17 +156,11 @@ public class OrderService {
             orderEvent.setChartStatus(EventStatus.ROLLBACK);
             orderEvent.setInventoryStatus(EventStatus.ROLLBACK);
             orderEvent.setPaymentStatus(EventStatus.FAILED);
-            repository.save(order);
+            order.setUpdateDate(LocalDateTime.now());
+            repository.saveAndFlush(order);
             throw new OrderNotPlacedException("commitPayment has been failed, deleteChart and updateInventory has been rollbacked");
         }
-
-        order.setTotalPrice(commitPayment.getTotalPrice());
-        orderEvent.setInventoryStatus(EventStatus.SUCCESSFUL);
-        orderEvent.setChartStatus(EventStatus.SUCCESSFUL);
-        orderEvent.setPaymentStatus(EventStatus.SUCCESSFUL);
-        order.setUpdateDate(LocalDateTime.now());
-
-        return repository.save(order);
+        return commitPayment;
     }
 
     private void validations(Order order) {
