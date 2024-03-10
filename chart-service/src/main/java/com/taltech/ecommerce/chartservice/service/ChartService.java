@@ -41,16 +41,9 @@ public class ChartService {
             .orElseThrow(() -> new EntityNotFoundException(String.format("%s - Chart with userId '%s' not found",
                 action, userId)));
 
-        boolean rollback = action.equals("Rollback");
-        if(!rollback && !chart.isActive()) {
-            throw new ChartDeleteException(String.format("%s - Chart for userId '%s' is not active",
-                action,
-                userId));
-        }
-
         log.info("{} - Updating chart by id '{}'", action, chart.getId());
         try {
-            setChartActive(chart, rollback);
+            setChartActive(chart,  action.equals("Rollback"));
             setChartUpdateDate(chart);
             repository.save(chart);
         }
