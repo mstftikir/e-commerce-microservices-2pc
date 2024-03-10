@@ -15,8 +15,10 @@ import com.taltech.ecommerce.orderservice.dto.inventory.InventoryDto;
 import com.taltech.ecommerce.orderservice.dto.payment.PaymentDto;
 import com.taltech.ecommerce.orderservice.dto.payment.PaymentItemDto;
 import com.taltech.ecommerce.orderservice.dto.user.UserDto;
+import com.taltech.ecommerce.orderservice.enumeration.EventStatus;
 import com.taltech.ecommerce.orderservice.exception.OrderNotPlacedException;
 import com.taltech.ecommerce.orderservice.model.Order;
+import com.taltech.ecommerce.orderservice.model.OrderEvent;
 import com.taltech.ecommerce.orderservice.repository.OrderRepository;
 
 import io.micrometer.observation.Observation;
@@ -57,13 +59,30 @@ public class OrderService {
     public Order placeOrder(Order order) {
         validations(order);
 
+        OrderEvent orderEvent = new OrderEvent();
+        orderEvent.setId(UUID.randomUUID().toString());
+        order.setOrderEvent(orderEvent);
+
+        addDates(order);
+        repository.save(order);
+
         //Prepare phase
         updateInventory(PREPARE, order);
         deleteChart(PREPARE, order);
         savePayment(PREPARE, order);
 
         ///Commit Phase
-        updateInventory(COMMIT, order);
+
+        try {
+            updateInventory(COMMIT, order);
+        }
+        catch (Exception exception) {
+            log.error(SERVICES_FAILED_MESSAGE, COMMIT, "updateInventory", exception.getMessage());
+            orderEvent.setInventoryStatus(EventStatus.FAILED);
+            repository.save(order);
+            throw new OrderNotPlacedException("updateInventory has been failed");
+        }
+
 
         try {
             deleteChart(COMMIT, order);
@@ -72,6 +91,9 @@ public class OrderService {
             log.error(SERVICES_FAILED_MESSAGE, COMMIT, "deleteChart", exception.getMessage());
             log.error(STARTING_ROLLBACK_MESSAGE, "updateInventory");
             updateInventory(ROLLBACK, order);
+            orderEvent.setInventoryStatus(EventStatus.ROLLBACK);
+            orderEvent.setChartStatus(EventStatus.FAILED);
+            repository.save(order);
             throw new OrderNotPlacedException("deleteChart has been failed, updateInventory has been rollbacked");
         }
 
@@ -84,11 +106,19 @@ public class OrderService {
             log.error(STARTING_ROLLBACK_MESSAGE, "deleteChart and updateInventory");
             deleteChart(ROLLBACK, order);
             updateInventory(ROLLBACK, order);
+
+            orderEvent.setChartStatus(EventStatus.ROLLBACK);
+            orderEvent.setInventoryStatus(EventStatus.ROLLBACK);
+            orderEvent.setPaymentStatus(EventStatus.FAILED);
+            repository.save(order);
             throw new OrderNotPlacedException("commitPayment has been failed, deleteChart and updateInventory has been rollbacked");
         }
 
         order.setTotalPrice(commitPayment.getTotalPrice());
-        addDates(order);
+        orderEvent.setInventoryStatus(EventStatus.SUCCESSFUL);
+        orderEvent.setChartStatus(EventStatus.SUCCESSFUL);
+        orderEvent.setPaymentStatus(EventStatus.SUCCESSFUL);
+        order.setUpdateDate(LocalDateTime.now());
 
         return repository.save(order);
     }
