@@ -46,7 +46,7 @@ public class OrderService {
 
     private final OrderRepository repository;
     private final WebClient.Builder webClientBuilder;
-    private final ObservationRegistry observationRegistry;
+    private  ObservationRegistry observationRegistry;
 
     @Value("${user.service.url}")
     private String userServiceUrl;
@@ -198,12 +198,6 @@ public class OrderService {
         inventoryServiceObservation.observe(() -> {
 
             if(FeatureFlag.USE_INVENTORY_V2_API.isActive()) {
-                callInventoryV2(action, order);
-            }
-            callInventory(action, order);
-
-
-            if(FeatureFlag.USE_CHART_V2_API.isActive()) {
                 callInventoryV2(action, order);
             }
             callInventory(action, order);
