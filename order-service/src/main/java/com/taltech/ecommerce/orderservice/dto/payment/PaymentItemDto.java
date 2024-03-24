@@ -11,7 +11,7 @@ import lombok.Data;
 public class PaymentItemDto {
 
     private String inventoryCode;
-    private Integer quantity;
+    private BigDecimal quantity;
     private BigDecimal price;
     private LocalDateTime insertDate;
     private LocalDateTime updateDate;
