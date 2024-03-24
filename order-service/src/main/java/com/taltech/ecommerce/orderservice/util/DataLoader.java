@@ -47,7 +47,6 @@ public class DataLoader implements CommandLineRunner {
             order.setOrderEvent(orderEvent);
             order.setUserId(12345L);
             order.setOrderItems(List.of(orderItem, orderItem2));
-            order.setTotalPrice(new BigDecimal(1800));
             order.setInsertDate(LocalDateTime.now());
             order.setUpdateDate(LocalDateTime.now());
             orderRepository.save(order);
@@ -74,7 +73,6 @@ public class DataLoader implements CommandLineRunner {
             order2.setOrderEvent(orderEvent2);
             order2.setUserId(67890L);
             order2.setOrderItems(List.of(orderItem3, orderItem4));
-            order2.setTotalPrice(new BigDecimal(3600));
             order2.setInsertDate(LocalDateTime.now());
             order2.setUpdateDate(LocalDateTime.now());
             orderRepository.save(order2);

@@ -71,9 +71,8 @@ public class OrderService {
 
         preparePhase(order, orderEvent);
 
-        PaymentDto commitPayment = commitPhase(order, orderEvent);
+        commitPhase(order, orderEvent);
 
-        order.setTotalPrice(commitPayment.getTotalPrice());
         orderEvent.setInventoryStatus(EventStatus.SUCCESSFUL);
         orderEvent.setChartStatus(EventStatus.SUCCESSFUL);
         orderEvent.setPaymentStatus(EventStatus.SUCCESSFUL);
