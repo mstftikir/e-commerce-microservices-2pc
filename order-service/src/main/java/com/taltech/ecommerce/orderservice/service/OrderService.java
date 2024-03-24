@@ -66,6 +66,7 @@ public class OrderService {
         orderEvent.setId(UUID.randomUUID().toString());
         order.setOrderEvent(orderEvent);
 
+        order.setDiscountId(UUID.randomUUID().toString());
         addDates(order);
         repository.saveAndFlush(order);
 
@@ -235,6 +236,7 @@ public class OrderService {
         PaymentDto paymentDto = PaymentDto.builder()
             .code(UUID.randomUUID().toString())
             .userId(order.getUserId())
+            .discountId(order.getDiscountId())
             .paymentItems(paymentItemDtos)
             .build();
         AtomicReference<PaymentDto> paymentResponseDto = new AtomicReference<>();

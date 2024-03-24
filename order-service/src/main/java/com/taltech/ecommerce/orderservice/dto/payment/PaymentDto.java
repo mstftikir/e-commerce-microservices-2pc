@@ -15,6 +15,7 @@ public class PaymentDto {
     private String code;
     private List<PaymentItemDto> paymentItems;
     private BigDecimal totalPrice;
+    private String discountId;
     private boolean active;
     private LocalDateTime insertDate;
     private LocalDateTime updateDate;

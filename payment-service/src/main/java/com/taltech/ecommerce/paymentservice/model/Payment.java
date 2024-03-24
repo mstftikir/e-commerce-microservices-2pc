@@ -29,6 +29,7 @@ public class Payment {
     @OneToMany(cascade = CascadeType.ALL)
     private List<PaymentItem> paymentItems;
     private BigDecimal totalPrice;
+    private String discountId;
     private boolean active;
     private LocalDateTime insertDate;
     private LocalDateTime updateDate;

@@ -38,6 +38,7 @@ public class Order {
     @OneToMany(cascade = CascadeType.ALL)
     private List<OrderItem> orderItems;
     private BigDecimal totalPrice;
+    private String discountId;
     private LocalDateTime insertDate;
     private LocalDateTime updateDate;
 }
