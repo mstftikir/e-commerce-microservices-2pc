@@ -16,6 +16,7 @@ import com.taltech.ecommerce.orderservice.dto.payment.PaymentItemDto;
 import com.taltech.ecommerce.orderservice.dto.user.UserDto;
 import com.taltech.ecommerce.orderservice.enumeration.EventStatus;
 import com.taltech.ecommerce.orderservice.exception.OrderNotPlacedException;
+import com.taltech.ecommerce.orderservice.featureflag.FeatureFlag;
 import com.taltech.ecommerce.orderservice.model.Order;
 import com.taltech.ecommerce.orderservice.model.OrderEvent;
 import com.taltech.ecommerce.orderservice.repository.OrderRepository;
@@ -195,6 +196,18 @@ public class OrderService {
         );
         InventoryDto[] inventoryArray = inventoryDtos.toArray(new InventoryDto[0]);
         inventoryServiceObservation.observe(() -> {
+
+            if(FeatureFlag.USE_INVENTORY_V2_API.isActive()) {
+                callInventoryV2(action, order);
+            }
+            callInventory(action, order);
+
+
+            if(FeatureFlag.USE_CHART_V2_API.isActive()) {
+                callInventoryV2(action, order);
+            }
+            callInventory(action, order);
+
             String uri = inventoryServiceUrl + action;
             InventoryDto[] inventoryResponseDtos = webClientBuilder.build().put()
                 .uri(uri)
@@ -206,6 +219,12 @@ public class OrderService {
                 throw new EntityNotFoundException(String.format("%s - Inventory is not updated '%s'", action, inventoryDtos));
             }
         });
+    }
+
+    private void callInventory(String action, Order order) {
+    }
+
+    private void callInventoryV2(String action, Order order) {
     }
 
     private void deleteChart(String action, Order order) {
